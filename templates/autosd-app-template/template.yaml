@@ -1,0 +1,156 @@
+apiVersion: scaffolder.backstage.io/v1beta3
+kind: Template
+metadata:
+  name: autosd-app-template
+  title: LB2255 - Jumpstarter
+  description: "LB2255 - Jumpstarter: An open source framework for hardware-in-the-loop testing in modern DevSecOps pipelines"
+  tags:
+    - automotive
+    - autosd
+    - jumpstarter
+    - cpp
+spec:
+  owner: automotive
+  type: service
+  parameters:
+    - title: Provide Project Information
+      required:
+        - component_id
+      properties:
+        component_id:
+          title: Name
+          type: string
+          default: jumpstarter-lab
+          description: Unique name of your project
+          ui:field: EntityNamePicker
+          maxLength: 23
+        description:
+          title: Description
+          type: string
+          default: "LB2255 - Jumpstarter: An open source framework for hardware-in-the-loop testing in modern DevSecOps pipelines"
+          description: Help others understand what this project is about.
+
+  steps:
+    - id: request-url
+      name: Extract cluster info 1
+      action: http:backstage:request
+      input:
+        method: GET
+        path: /catalog/entities/by-name/template/default/autosd-app-template
+        headers:
+          Accept-Encoding: identity
+
+    - id: extract-url
+      name: Extract cluster info 2
+      action: roadiehq:utils:jsonata
+      input:
+        data: ${{ steps['request-url'].output.body }}
+        expression: metadata.annotations."backstage.io/source-location"
+
+    - id: parse-url
+      name: Extract cluster info 3
+      action: regex:replace
+      input:
+        regExps:
+          - pattern: (?:.*cluster-)(\w{5})(?:.*)
+            replacement: $1
+            values:
+              - key: guid
+                value: ${{ steps['extract-url'].output.result }}
+          - pattern: (?:.*)(cluster-\w{5}.*\.com)(?:.*)
+            replacement: $1
+            values:
+              - key: base_domain
+                value: ${{ steps['extract-url'].output.result }}
+
+    - id: template
+      name: Generating Development Resources
+      action: fetch:template
+      input:
+        url: ./skeleton
+        copyWithoutTemplating:
+          - .github/workflows/*
+        values:
+          component_id: ${{ parameters.component_id }}
+          description: ${{ parameters.description }}
+          namespace: ${{ user.entity.metadata.name }}-${{ parameters.component_id }}-build
+          owner: ${{ user.entity.metadata.name }}
+          cluster: .apps.${{ steps['parse-url'].output.values.base_domain }}
+          host: gitlab-gitlab.apps.${{ steps['parse-url'].output.values.base_domain }}
+          destination: ${{ user.entity.metadata.name }}/${{ parameters.component_id }}
+          jumpstarter_host: jumpstarter-grpc.jumpstarter-lab.svc.cluster.local:8082
+          registry_host: quay-${{ steps['parse-url'].output.values.guid }}.apps.${{ steps['parse-url'].output.values.base_domain }}
+          registry_destination: quayadmin/${{ user.entity.metadata.name }}-${{ parameters.component_id }}
+
+    - id: publish
+      name: Publish Development Resources
+      action: publish:gitlab
+      input:
+        repoUrl: "gitlab-gitlab.apps.${{ steps['parse-url'].output.values.base_domain }}?owner=${{ user.entity.metadata.name }}&repo=${{parameters.component_id}}"
+        title: code resources for ${{ parameters.component_id }}
+        defaultBranch: main
+        repoVisibility: public
+
+    - id: register
+      name: Register Catalog Info
+      action: catalog:register
+      input:
+        repoContentsUrl: ${{ steps.publish.output.repoContentsUrl }}
+        catalogInfoPath: "/catalog-info.yaml"
+
+    - id: template-gitops-deployment
+      name: Generating Deployment Resources
+      action: fetch:template
+      input:
+        url: ./manifests
+        copyWithoutTemplating: []
+        values:
+          component_id: ${{ parameters.component_id }}
+          description: ${{ parameters.description }}
+          destination: https://gitlab-gitlab.apps.${{ steps['parse-url'].output.values.base_domain }}/${{ user.entity.metadata.name }}/${{parameters.component_id}}-gitops.git
+          source_repository: https://gitlab-gitlab.apps.${{ steps['parse-url'].output.values.base_domain }}/${{ user.entity.metadata.name }}/${{parameters.component_id}}.git
+          source_repository_pac: https://gitlab-gitlab.apps.${{ steps['parse-url'].output.values.base_domain }}/${{ user.entity.metadata.name }}/${{parameters.component_id}}
+          gitlab_url: https://gitlab-gitlab.apps.${{ steps['parse-url'].output.values.base_domain }}/
+          repository_name: ${{parameters.component_id}}
+          git_owner: ${{ user.entity.metadata.name }}
+          cluster: .apps.${{ steps['parse-url'].output.values.base_domain }}
+          namespace: ${{ user.entity.metadata.name }}-${{ parameters.component_id }}-dev
+          image_registry: "Quay"
+          jumpstarter_host: jumpstarter-grpc.jumpstarter-lab.svc.cluster.local:8082
+          registry_host: quay-${{ steps['parse-url'].output.values.guid }}.apps.${{ steps['parse-url'].output.values.base_domain }}
+          registry_organization: quayadmin
+          image_name: ${{ user.entity.metadata.name }}-${{ parameters.component_id }}
+          image_tag: latest
+          repository_host: gitlab-gitlab.apps.${{ steps['parse-url'].output.values.base_domain }}
+          deployment_name: ${{ parameters.component_id }}
+          user: ${{ user.entity.metadata.name }}
+        targetPath: ./tenant-gitops
+
+    - id: publish-gitops
+      name: Publish Deployment Resources
+      action: publish:gitlab
+      input:
+        repoUrl: "gitlab-gitlab.apps.${{ steps['parse-url'].output.values.base_domain }}?owner=${{ user.entity.metadata.name }}&repo=${{parameters.component_id}}-gitops"
+        title: gitops resources for ${{ parameters.component_id }}
+        description: gitops resources for ${{ parameters.component_id }}
+        sourcePath: ./tenant-gitops
+        defaultBranch: main
+        repoVisibility: public
+
+    - id: create-argocd-resources
+      name: Register GitOps Resources
+      action: argocd:create-resources
+      input:
+        appName: ${{ user.entity.metadata.name }}-${{ parameters.component_id }}-bootstrap
+        argoInstance: main
+        namespace: janus-argocd
+        repoUrl: https://gitlab-gitlab.apps.${{ steps['parse-url'].output.values.base_domain }}/${{ user.entity.metadata.name }}/${{ parameters.component_id }}-gitops.git
+        path: "argocd/"
+
+  output:
+    links:
+      - title: Source Code Repository
+        url: ${{ steps.publish.output.remoteUrl }}
+      - title: Open Component in catalog
+        icon: catalog
+        entityRef: ${{ steps.register.output.entityRef }}

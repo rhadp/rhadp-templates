@@ -1,0 +1,30 @@
+app:
+  component_id: ${{ values.component_id }}
+  name: ${{ values.user }}-${{ values.component_id }}
+  namespace: ${{ values.user }}-${{ values.component_id }}-dev
+  cluster: ${{ values.cluster }}
+
+user: ${{ values.user }}
+
+git:
+  branch: main
+  repo: ${{ values.source_repository }}
+  pacRepo: ${{ values.source_repository_pac }}
+  gitlabInstance: ${{ values.gitlab_url }}
+  org: ${{ values.git_owner }}
+  name: ${{ values.repository_name }}
+  host: ${{ values.repository_host }}
+  token: ''
+  webhookSecret: ''
+  pacWebhookSecret: ''
+
+image:
+  registry: ${{values.image_registry}}
+  organization: ${{values.registry_organization}}
+  host: ${{ values.registry_host }}
+  name: ${{ values.image_name }}
+  tag: ${{ values.image_tag }}
+
+jumpstarter:
+  host: ${{ values.jumpstarter_host }}
+  namespace: jumpstarter-qemu-exporter

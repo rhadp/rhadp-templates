@@ -1,0 +1,32 @@
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: ${{values.owner}}-${{values.component_id}}
+  {%- if values.description %}
+  description: "${{values.description}}"
+  {%- endif %}
+  annotations:
+    argocd/app-selector: rht-gitops.com/janus-argocd=${{values.owner}}-${{values.component_id}}-bootstrap
+    backstage.io/kubernetes-id: ${{values.owner}}-${{values.component_id}}
+    janus-idp.io/tekton: ${{values.owner}}-${{values.component_id}}
+    backstage.io/source-location: url:https://${{values.host}}/${{values.destination}}
+    backstage.io/techdocs-ref: url:https://${{values.host}}/${{values.destination}}
+    gitlab.com/project-slug: ${{values.destination}}
+    quay.io/repository-slug: ${{values.registry_destination}}
+  tags:
+    - automotive
+    - autosd
+    - jumpstarter
+    - cpp
+  links:
+    - url: https://devspaces${{values.cluster}}/#https://${{values.host}}/${{values.destination}}
+      title: "DevSpace ${{values.component_id}}"
+    - url: https://devspaces${{values.cluster}}
+      title: OpenShift Dev Spaces Workspaces
+    - url: https://showroom-showroom-${{values.owner}}${{values.cluster}}
+      title: Showroom
+      
+spec:
+  type: application
+  lifecycle: development
+  owner: User:${{values.owner}}

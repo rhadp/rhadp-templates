@@ -1,0 +1,46 @@
+app:
+  component_id: ${{ values.component_id }}
+  name: ${{ values.user }}-${{ values.component_id }}
+  namespace: ${{ values.user }}-${{ values.component_id }}-dev
+
+namespace:
+  enabled: true
+  argocd:
+    name: default
+
+replicaCount: 1
+
+image:
+  pullPolicy: Always
+  registry: ${{values.image_registry}}
+  host: ${{values.registry_host}}
+  organization: ${{values.registry_organization}}
+  name: ${{values.image_name}}
+  # Overrides the image tag whose default is the chart appVersion.
+
+nameOverride: ""
+fullnameOverride: ""
+
+podAnnotations: {}
+
+podSecurityContext: {}
+  #fsGroup: 0
+
+securityContext: {}
+
+service:
+  type: ClusterIP
+  port: 8000
+
+resources: {}
+
+nodeSelector:
+  kubernetes.io/arch: arm64
+
+tolerations:
+  - key: "architecture"
+    operator: "Equal"
+    value: "arm"
+    effect: "NoSchedule"
+
+affinity: {}
