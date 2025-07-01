@@ -1,0 +1,9 @@
+apiVersion: backstage.io/v1alpha1
+kind: Location
+metadata:
+  name: automotive-collection
+  description: A collection of templates to demonstrate the RH Automotive Development Platform (RHADP)
+spec:
+  type: url
+  targets:
+    - templates/autosd-app-template/template.yaml

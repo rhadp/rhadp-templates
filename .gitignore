@@ -1,0 +1,9 @@
+**/binaries/**
+inventory/**
+ansible/inventory/**
+venv/**
+.venv/**
+hack.md
+hack/
+
+.DS_Store
